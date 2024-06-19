@@ -110,24 +110,30 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
   constructor(scene: BattleScene, x: number, y: number, species: PokemonSpecies, level: integer, abilityIndex?: integer, formIndex?: integer, gender?: Gender, shiny?: boolean, variant?: Variant, ivs?: integer[], nature?: Nature, dataSource?: Pokemon | PokemonData) {
     super(scene, x, y);
 
+    // 플레이어가 아닌 상태에서 얻을 수 없는 포켓몬 종류일 경우 예외 처리
     if (!species.isObtainable() && this.isPlayer()) {
       throw `Cannot create a player Pokemon for species '${species.getName(formIndex)}'`;
     }
 
+    // 숨겨진 능력 발동 확률
     const hiddenAbilityChance = new Utils.IntegerHolder(256);
     if (!this.hasTrainer()) {
       this.scene.applyModifiers(HiddenAbilityRateBoosterModifier, true, hiddenAbilityChance);
     }
 
+    // 랜덤하게 숨겨진 능력 발동 여부 결정
     const hasHiddenAbility = !Utils.randSeedInt(hiddenAbilityChance.value);
     const randAbilityIndex = Utils.randSeedInt(2);
 
+    // 기본 속성 설정
     this.species = species;
     this.pokeball = dataSource?.pokeball || PokeballType.POKEBALL;
     this.level = level;
     this.abilityIndex = abilityIndex !== undefined
       ? abilityIndex
       : (species.abilityHidden && hasHiddenAbility ? species.ability2 ? 2 : 1 : species.ability2 ? randAbilityIndex : 0);
+
+    // 선택적 속성 설정
     if (formIndex !== undefined) {
       this.formIndex = formIndex;
     }
@@ -140,17 +146,19 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
     if (variant !== undefined) {
       this.variant = variant;
     }
+
+    // 경험치 및 레벨 설정
     this.exp = dataSource?.exp || getLevelTotalExp(this.level, species.growthRate);
     this.levelExp = dataSource?.levelExp || 0;
+
+    // 데이터 소스에서 가져온 데이터 설정
     if (dataSource) {
       this.id = dataSource.id;
       this.hp = dataSource.hp;
       this.stats = dataSource.stats;
       this.ivs = dataSource.ivs;
       this.passive = !!dataSource.passive;
-      if (this.variant === undefined) {
-        this.variant = 0;
-      }
+      this.variant = dataSource.variant !== undefined ? dataSource.variant : 0;
       this.nature = dataSource.nature || 0 as Nature;
       this.natureOverride = dataSource.natureOverride !== undefined ? dataSource.natureOverride : -1;
       this.moveset = dataSource.moveset;
@@ -169,25 +177,31 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
       this.fusionGender = dataSource.fusionGender;
       this.fusionLuck = dataSource.fusionLuck;
     } else {
+    // 데이터 소스가 없는 경우 랜덤 생성
       this.id = Utils.randSeedInt(4294967296);
       this.ivs = ivs || Utils.getIvsFromId(this.id);
 
+      // 성별 랜덤 설정
       if (this.gender === undefined) {
         this.generateGender();
       }
 
+      // 폼 인덱스 설정
       if (this.formIndex === undefined) {
         this.formIndex = this.scene.getSpeciesFormIndex(species, this.gender, this.nature, this.isPlayer());
       }
 
+      // 빛나는 포켓몬 여부 랜덤 설정
       if (this.shiny === undefined) {
         this.trySetShiny();
       }
 
+      // 변종 설정
       if (this.variant === undefined) {
         this.variant = this.shiny ? this.generateVariant() : 0;
       }
 
+      // 성격 설정
       if (nature !== undefined) {
         this.setNature(nature);
       } else {
@@ -201,6 +215,7 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
       this.metBiome = scene.currentBattle ? scene.arena.biomeType : -1;
       this.pokerus = false;
 
+      // 레벨이 1보다 큰 경우 특정 조건으로 설정
       if (level > 1) {
         const fused = new Utils.BooleanHolder(scene.gameMode.isSplicedOnly);
         if (!fused.value && !this.isPlayer() && !this.hasTrainer()) {
@@ -216,14 +231,18 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
       this.fusionLuck = this.luck;
     }
 
+    // 포켓몬 이름 생성
     this.generateName();
 
+    // 플레이어가 얻을 수 없는 종류의 포켓몬일 경우 빛나는 상태 해제
     if (!species.isObtainable()) {
       this.shiny = false;
     }
 
+    // 스탯 계산
     this.calculateStats();
   }
+
 
   init(): void {
     this.fieldPosition = FieldPosition.CENTER;
