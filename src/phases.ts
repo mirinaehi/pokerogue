@@ -3565,7 +3565,9 @@ export class DamagePhase extends PokemonPhase {
     this.amount = amount;
   }
 
+  //포켓몬이 데미지를 받을 때의 동작을 정의합니다. 이 메서드는 다양한 히트 결과에 따라 소리를 재생하고, 데미지 숫자를 표시하며, 시각적 효과를 적용합니다.
   applyDamage() {
+  // 히트 결과에 따라 소리 재생
     switch (this.damageResult) {
     case HitResult.EFFECTIVE:
       this.scene.playSound("hit");
@@ -3579,10 +3581,12 @@ export class DamagePhase extends PokemonPhase {
       break;
     }
 
+    // 데미지 숫자 표시
     if (this.amount) {
       this.scene.damageNumberHandler.add(this.getPokemon(), this.amount, this.damageResult, this.critical);
     }
 
+    // 히트 결과가 OTHER가 아닌 경우 플래시 효과 적용
     if (this.damageResult !== HitResult.OTHER) {
       const flashTimer = this.scene.time.addEvent({
         delay: 100,
@@ -3596,9 +3600,11 @@ export class DamagePhase extends PokemonPhase {
         }
       });
     } else {
+    // 히트 결과가 OTHER인 경우 바로 정보 업데이트
       this.getPokemon().updateInfo().then(() => this.end());
     }
   }
+
 
   end() {
     switch (this.scene.currentBattle.battleSpec) {
