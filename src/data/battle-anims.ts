@@ -748,11 +748,16 @@ export abstract class BattleAnim {
       return ret;
     }
 
+    // 포켓몬 배틀 애니메이션을 처리하고 실행하는 기능을 담당
+    // 배틀의 사용자 인터페이스 요소를 애니메이션화하고, 필요한 경우 콜백을 호출
     play(scene: BattleScene, callback?: Function) {
+    // 상대방 애니메이션인지 확인합니다.
       const isOppAnim = this.isOppAnim();
+      // 사용자가 누구인지와 대상이 누구인지를 결정합니다.
       const user = !isOppAnim ? this.user : this.target;
       const target = !isOppAnim ? this.target : this.user;
 
+      // 대상이 필드에 없는 경우 콜백을 호출하고 종료합니다.
       if (!target.isOnField()) {
         if (callback) {
           callback();
@@ -760,9 +765,11 @@ export abstract class BattleAnim {
         return;
       }
 
+      // 사용자와 대상의 스프라이트를 가져옵니다.
       const userSprite = user.getSprite();
       const targetSprite = target.getSprite();
 
+      // 스프라이트 캐시와 우선순위 배열을 초기화합니다.
       const spriteCache: SpriteCache = {
         [AnimFrameTarget.GRAPHIC]: [],
         [AnimFrameTarget.USER]: [],
@@ -770,16 +777,17 @@ export abstract class BattleAnim {
       };
       const spritePriorities: integer[] = [];
 
+      // 애니메이션 종료 후 정리 및 완료하는 함수입니다.
       const cleanUpAndComplete = () => {
         userSprite.setPosition(0, 0);
         userSprite.setScale(1);
         userSprite.setAlpha(1);
-        userSprite.pipelineData["tone"] = [ 0.0, 0.0, 0.0, 0.0 ];
+        userSprite.pipelineData["tone"] = [0.0, 0.0, 0.0, 0.0];
         userSprite.setAngle(0);
         targetSprite.setPosition(0, 0);
         targetSprite.setScale(1);
         targetSprite.setAlpha(1);
-        targetSprite.pipelineData["tone"] = [ 0.0, 0.0, 0.0, 0.0 ];
+        targetSprite.pipelineData["tone"] = [0.0, 0.0, 0.0, 0.0];
         targetSprite.setAngle(0);
         if (!this.isHideUser()) {
           userSprite.setVisible(true);
@@ -800,23 +808,29 @@ export abstract class BattleAnim {
         }
       };
 
+      // moveAnimations가 없는 경우 정리 및 완료 함수 호출
       if (!scene.moveAnimations) {
         return cleanUpAndComplete();
       }
 
+      // 애니메이션 객체를 가져옵니다.
       const anim = this.getAnim();
 
+      // 사용자와 대상의 초기 위치를 저장합니다.
       const userInitialX = user.x;
       const userInitialY = user.y;
       const targetInitialX = target.x;
       const targetInitialY = target.y;
 
-      this.srcLine = [ userFocusX, userFocusY, targetFocusX, targetFocusY ];
-      this.dstLine = [ userInitialX, userInitialY, targetInitialX, targetInitialY ];
+      // 소스 라인과 목적지 라인을 설정합니다.
+      this.srcLine = [userFocusX, userFocusY, targetFocusX, targetFocusY];
+      this.dstLine = [userInitialX, userInitialY, targetInitialX, targetInitialY];
 
+      // 애니메이션 프레임 수와 현재 프레임을 초기화합니다.
       let r = anim.frames.length;
       let f = 0;
 
+      // 트윈 애니메이션을 추가하여 애니메이션 프레임을 반복합니다.
       scene.tweens.addCounter({
         duration: Utils.getFrameMs(3),
         repeat: anim.frames.length,
@@ -841,7 +855,7 @@ export abstract class BattleAnim {
               const spriteSource = isUser ? userSprite : targetSprite;
               if ((isUser ? u : t) === sprites.length) {
                 const sprite = scene.addPokemonSprite(isUser ? user : target, 0, 0, spriteSource.texture, spriteSource.frame.name, true);
-                [ "spriteColors", "fusionSpriteColors" ].map(k => sprite.pipelineData[k] = (isUser ? user : target).getSprite().pipelineData[k]);
+                ["spriteColors", "fusionSpriteColors"].map(k => sprite.pipelineData[k] = (isUser ? user : target).getSprite().pipelineData[k]);
                 sprite.setPipelineData("spriteKey", (isUser ? user : target).getBattleSpriteKey());
                 sprite.setPipelineData("shiny", (isUser ? user : target).shiny);
                 sprite.setPipelineData("variant", (isUser ? user : target).variant);
@@ -857,7 +871,7 @@ export abstract class BattleAnim {
               pokemonSprite.setPosition(graphicFrameData.x, graphicFrameData.y - ((spriteSource.height / 2) * (spriteSource.parentContainer.scale - 1)));
 
               pokemonSprite.setAngle(graphicFrameData.angle);
-              pokemonSprite.setScale(graphicFrameData.scaleX * spriteSource.parentContainer.scale,  graphicFrameData.scaleY * spriteSource.parentContainer.scale);
+              pokemonSprite.setScale(graphicFrameData.scaleX * spriteSource.parentContainer.scale, graphicFrameData.scaleY * spriteSource.parentContainer.scale);
 
               pokemonSprite.setData("locked", frame.locked);
 
@@ -928,7 +942,7 @@ export abstract class BattleAnim {
               const graphicFrameData = frameData.get(frame.target).get(graphicIndex);
               moveSprite.setPosition(graphicFrameData.x, graphicFrameData.y);
               moveSprite.setAngle(graphicFrameData.angle);
-              moveSprite.setScale(graphicFrameData.scaleX,  graphicFrameData.scaleY);
+              moveSprite.setScale(graphicFrameData.scaleX, graphicFrameData.scaleY);
 
               moveSprite.setAlpha(frame.opacity / 255);
               moveSprite.setVisible(frame.visible);
