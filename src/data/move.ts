@@ -5323,16 +5323,36 @@ const targetSleptOrComatoseCondition: MoveConditionFunc = (user: Pokemon, target
 
 export type MoveAttrFilter = (attr: MoveAttr) => boolean;
 
+/**
+ * 무브 속성 필터를 통해 필터링된 무브 속성들을 비동기적으로 적용합니다.
+ *
+ * @param attrFilter - 적용할 무브 속성을 필터링하는 함수
+ * @param user - 무브를 사용하는 포켓몬
+ * @param target - 무브의 타겟 포켓몬
+ * @param move - 적용할 무브
+ * @param args - 무브 속성에 전달할 추가 인자들
+ * @returns 무브 속성들이 모두 적용될 때까지 대기하는 Promise
+ */
 function applyMoveAttrsInternal(attrFilter: MoveAttrFilter, user: Pokemon, target: Pokemon, move: Move, args: any[]): Promise<void> {
+  // 새로운 Promise를 반환합니다.
   return new Promise(resolve => {
+    // 비동기적으로 처리할 속성들의 Promise 배열
     const attrPromises: Promise<boolean>[] = [];
+
+    // 필터 조건에 맞는 무브 속성들을 필터링
     const moveAttrs = move.attrs.filter(a => attrFilter(a));
+
+    // 필터링된 각 속성에 대해
     for (const attr of moveAttrs) {
+      // 속성을 적용하고 결과를 받음
       const result = attr.apply(user, target, move, args);
+      // 결과가 Promise인 경우 attrPromises 배열에 추가
       if (result instanceof Promise) {
         attrPromises.push(result);
       }
     }
+
+    // 모든 속성의 Promise가 완료되면 resolve 호출
     Promise.allSettled(attrPromises).then(() => resolve());
   });
 }

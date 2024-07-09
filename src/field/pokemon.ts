@@ -1723,17 +1723,21 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
   apply(source: Pokemon, move: Move): HitResult {
     let result: HitResult;
     const damage = new Utils.NumberHolder(0);
+    // 방어 측의 필드를 가져옴
     const defendingSidePlayField = this.isPlayer() ? this.scene.getPlayerField() : this.scene.getEnemyField();
 
+    // 공격의 카테고리와 타입 설정
     const variableCategory = new Utils.IntegerHolder(move.category);
     applyMoveAttrs(VariableMoveCategoryAttr, source, this, move, variableCategory);
     const moveCategory = variableCategory.value as MoveCategory;
 
+    // 타입 변경 및 파워 배율 설정
     const typeChangeMovePowerMultiplier = new Utils.NumberHolder(1);
     applyMoveAttrs(VariableMoveTypeAttr, source, this, move);
     applyPreAttackAbAttrs(MoveTypeChangeAttr, source, this, move, typeChangeMovePowerMultiplier);
     const types = this.getTypes(true, true);
 
+    // 타입 효과와 Immune 체크
     const cancelled = new Utils.BooleanHolder(false);
     const typeless = move.hasAttr(TypelessAttr);
     const typeMultiplier = new Utils.NumberHolder(!typeless && (moveCategory !== MoveCategory.STATUS || move.getAttrs(StatusMoveTypeImmunityAttr).find(attr => types.includes(attr.immuneType)))
@@ -1747,6 +1751,7 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
       typeMultiplier.value = 0;
     }
 
+    // 보호 관련 아레나 태그 처리
     // Apply arena tags for conditional protection
     if (!move.hasFlag(MoveFlags.IGNORE_PROTECT) && !move.isAllyTarget()) {
       const defendingSide = this.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
@@ -1756,6 +1761,7 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
       this.scene.arena.applyTagsForSide(ArenaTagType.CRAFTY_SHIELD, defendingSide, cancelled, this, move.category, move.moveTarget);
     }
 
+    // 물리 및 특수 공격 처리
     switch (moveCategory) {
     case MoveCategory.PHYSICAL:
     case MoveCategory.SPECIAL:
@@ -1804,6 +1810,7 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
         if (source.getTag(HelpingHandTag)) {
           power.value *= 1.5;
         }
+        // 크리티컬 히트 여부 결정 및 계산
         let isCritical: boolean;
         const critOnly = new Utils.BooleanHolder(false);
         const critAlways = source.getTag(BattlerTagType.ALWAYS_CRIT);
@@ -1864,25 +1871,34 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
         applyMoveAttrs(VariableAtkAttr, source, this, move, sourceAtk);
         applyMoveAttrs(VariableDefAttr, source, this, move, targetDef);
 
+        // 만약 타입 면역이 아닌 경우에만 실행
         if (!isTypeImmune) {
-          damage.value = Math.ceil(((((2 * source.level / 5 + 2) * power.value * sourceAtk.value / targetDef.value) / 50) + 2) * stabMultiplier.value * typeMultiplier.value * arenaAttackTypeMultiplier.value * screenMultiplier.value * ((this.scene.randBattleSeedInt(15) + 85) / 100) * criticalMultiplier.value);
+          // 데미지 계산식을 통해 데미지 값을 계산하여 설정
+          damage.value = Math.ceil(((((2 * source.level / 5 + 2) * power.value * sourceAtk.value / targetDef.value) / 50) + 2)
+              * stabMultiplier.value * typeMultiplier.value * arenaAttackTypeMultiplier.value
+              * screenMultiplier.value * ((this.scene.randBattleSeedInt(15) + 85) / 100) * criticalMultiplier.value);
+
+          // 물리 공격이고 공격자가 화상 상태에 있는 경우
           if (isPhysical && source.status && source.status.effect === StatusEffect.BURN) {
+            // 화상 효과 데미지 감소 효과를 무시할 수 있는 경우
             if (!move.hasAttr(BypassBurnDamageReductionAttr)) {
               const burnDamageReductionCancelled = new Utils.BooleanHolder(false);
+              // 화상 효과 데미지 감소 효과를 적용
               applyAbAttrs(BypassBurnDamageReductionAbAttr, source, burnDamageReductionCancelled);
+              // 감소가 취소되지 않은 경우
               if (!burnDamageReductionCancelled.value) {
+                // 데미지를 반으로 줄임
                 damage.value = Math.floor(damage.value / 2);
               }
             }
           }
 
+          // 데미지 증폭 효과를 적용
           applyPreAttackAbAttrs(DamageBoostAbAttr, source, this, move, damage);
 
           /**
-           * For each {@link HitsTagAttr} the move has, doubles the damage of the move if:
-           * The target has a {@link BattlerTagType} that this move interacts with
-           * AND
-           * The move doubles damage when used against that tag
+           * 각 {@link HitsTagAttr}마다, 이동이 상호 작용하는 {@link BattlerTagType}을 가진 대상에 대해
+           * 이동이 그 태그에 대해 두 배의 데미지를 줄 경우, 이동의 데미지를 두 배로 증가시킵니다.
            */
           move.getAttrs(HitsTagAttr).filter(hta => hta.doubleDamage).forEach(hta => {
             if (this.getTag(hta.tagType)) {
@@ -1891,17 +1907,26 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
           });
         }
 
+
+        // 만약 전투장의 지형이 안개가 낀 지형이고, 공격 대상이 땅에 닿아 있으며, 이동의 타입이 드래곤 타입인 경우
         if (this.scene.arena.terrain?.terrainType === TerrainType.MISTY && this.isGrounded() && move.type === Type.DRAGON) {
+          // 데미지를 반으로 줄입니다.
           damage.value = Math.floor(damage.value / 2);
         }
 
+        // 고정 데미지를 위한 정수 홀더를 생성합니다.
         const fixedDamage = new Utils.IntegerHolder(0);
+        // 이동에 대한 고정 데미지 특성을 적용합니다.
         applyMoveAttrs(FixedDamageAttr, source, this, move, fixedDamage);
+        // 타입 면역이 없고 고정 데미지 값이 있는 경우
         if (!isTypeImmune && fixedDamage.value) {
+          // 데미지 값을 고정 데미지 값으로 설정하고, 크리티컬 여부를 false로 설정합니다.
           damage.value = fixedDamage.value;
           isCritical = false;
+          // 결과를 '효과적'으로 설정합니다.
           result = HitResult.EFFECTIVE;
         }
+
 
         if (!result) {
           if (!typeMultiplier.value) {
@@ -1944,37 +1969,60 @@ export default abstract class Pokemon extends Phaser.GameObjects.Container {
         const destinyTag = this.getTag(BattlerTagType.DESTINY_BOND);
 
         const oneHitKo = result === HitResult.ONE_HIT_KO;
+
         if (damage.value) {
+          // 데미지가 있는 경우
           if (this.getHpRatio() === 1) {
+            // 자신의 체력 비율이 100%인 경우
+            // 최대 체력 상태에서 체력을 보호하는 속성을 적용합니다.
             applyPreDefendAbAttrs(PreDefendFullHpEndureAbAttr, this, source, move, cancelled, damage);
           } else if (!this.isPlayer() && damage.value >= this.hp) {
+            // 공격 대상이 플레이어가 아니고, 받은 데미지가 자신의 체력과 같거나 큰 경우
+            // 적 대상의 체력 보호 기회를 적용합니다.
             this.scene.applyModifiers(EnemyEndureChanceModifier, false, this);
           }
 
           /**
-             * We explicitly require to ignore the faint phase here, as we want to show the messages
-             * about the critical hit and the super effective/not very effective messages before the faint phase.
-             */
+           * 우리는 여기서 기절 단계를 무시해야만 합니다.
+           * 이전에 발생한 치명타와 초효과/비효과 메시지를 기절 단계 이전에 보여주기 위함입니다.
+           */
+          // 데미지를 갱신하고 업데이트하며, 해당 데미지가 발생했음을 나타냅니다.
           damage.value = this.damageAndUpdate(damage.value, result as DamageResult, isCritical, oneHitKo, oneHitKo, true);
+          // 받은 데미지를 플레이어의 턴 데이터에 추가합니다.
           this.turnData.damageTaken += damage.value;
+          // 치명타인 경우, 치명타 메시지를 대기열에 추가합니다.
           if (isCritical) {
             this.scene.queueMessage(i18next.t("battle:hitResultCriticalHit"));
           }
+          // 공격자가 플레이어인 경우, 피해 통계를 검증하고 최고 피해량을 갱신합니다.
           if (source.isPlayer()) {
             this.scene.validateAchvs(DamageAchv, damage);
             if (damage.value > this.scene.gameData.gameStats.highestDamage) {
               this.scene.gameData.gameStats.highestDamage = damage.value;
             }
           }
+          // 공격자의 턴 데이터에 피해를 추가합니다.
           source.turnData.damageDealt += damage.value;
+          // 현재 턴에서의 피해를 업데이트합니다.
           source.turnData.currDamageDealt = damage.value;
+          // 전투 데이터에서 피해를 받은 횟수를 증가시킵니다.
           this.battleData.hitCount++;
-          const attackResult = { move: move.id, result: result as DamageResult, damage: damage.value, critical: isCritical, sourceId: source.id };
+          // 공격 결과를 정의합니다.
+          const attackResult = {
+            move: move.id,
+            result: result as DamageResult,
+            damage: damage.value,
+            critical: isCritical,
+            sourceId: source.id
+          };
+          // 받은 공격 데이터를 턴 데이터의 앞에 추가합니다.
           this.turnData.attacksReceived.unshift(attackResult);
+          // 공격자가 플레이어이고 대상이 플레이어가 아닌 경우, 피해 보상을 적용합니다.
           if (source.isPlayer() && !this.isPlayer()) {
             this.scene.applyModifiers(DamageMoneyRewardModifier, true, source, damage);
           }
         }
+
 
         if (source.turnData.hitsLeft === 1) {
           switch (result) {
